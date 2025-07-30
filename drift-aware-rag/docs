@@ -1,0 +1,223 @@
+# Contributing to Drift-Aware RAG
+
+Thank you for your interest in contributing to the Drift-Aware RAG project! This document provides guidelines and instructions for contributing.
+
+## Code of Conduct
+
+By participating in this project, you agree to abide by our Code of Conduct, which promotes a respectful and inclusive environment for all contributors.
+
+## Getting Started
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/drift-aware-rag.git
+   cd drift-aware-rag
+   ```
+3. **Add the upstream repository**:
+   ```bash
+   git remote add upstream https://github.com/original/drift-aware-rag.git
+   ```
+4. **Create a virtual environment** and install dependencies:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   pip install -e .[dev]
+   ```
+
+## Development Process
+
+### 1. Create a Feature Branch
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+Use descriptive branch names:
+- `feature/add-new-drift-metric`
+- `bugfix/fix-memory-leak`
+- `docs/update-api-reference`
+
+### 2. Make Your Changes
+
+- Write clean, readable code following PEP 8
+- Add docstrings to all functions and classes
+- Include type hints where appropriate
+- Write unit tests for new functionality
+
+### 3. Test Your Changes
+
+Run the test suite:
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=src --cov-report=html
+
+# Run specific test file
+pytest tests/test_drift_detection.py
+```
+
+Run linting and formatting:
+```bash
+# Format code
+black src tests
+
+# Check linting
+flake8 src tests
+
+# Type checking
+mypy src
+```
+
+### 4. Commit Your Changes
+
+Write clear, descriptive commit messages:
+```bash
+git add .
+git commit -m "Add semantic drift detection using BERT embeddings
+
+- Implement BERTDriftDetector class
+- Add unit tests for new functionality
+- Update documentation with usage examples"
+```
+
+### 5. Push and Create Pull Request
+
+```bash
+git push origin feature/your-feature-name
+```
+
+Then create a Pull Request on GitHub with:
+- Clear title and description
+- Reference to any related issues
+- Summary of changes
+- Test results or screenshots if applicable
+
+## Coding Standards
+
+### Python Style Guide
+
+- Follow PEP 8
+- Use Black for formatting (line length: 100)
+- Use meaningful variable and function names
+- Add type hints to function signatures
+
+Example:
+```python
+from typing import List, Dict, Optional
+
+def detect_drift(
+    reference_outputs: List[str],
+    test_outputs: List[str],
+    confidence_level: float = 0.95
+) -> Dict[str, float]:
+    """
+    Detect drift between reference and test outputs.
+    
+    Args:
+        reference_outputs: Baseline outputs for comparison
+        test_outputs: New outputs to test for drift
+        confidence_level: Statistical confidence level
+        
+    Returns:
+        Dictionary mapping metric names to drift scores
+    """
+    # Implementation here
+    pass
+```
+
+### Documentation
+
+- Use Google-style docstrings
+- Update README.md for significant changes
+- Add examples for new features
+- Update API documentation
+
+### Testing
+
+- Write unit tests for all new functionality
+- Aim for >90% code coverage
+- Use pytest fixtures for common test data
+- Mock external API calls
+
+Example test:
+```python
+import pytest
+from src.drift_detection import DriftDetector
+
+@pytest.fixture
+def sample_outputs():
+    return {
+        "reference": ["Output 1", "Output 2"],
+        "test": ["Output 3", "Output 4"]
+    }
+
+def test_drift_detection(sample_outputs):
+    detector = DriftDetector()
+    results = detector.detect_drift(
+        sample_outputs["reference"],
+        sample_outputs["test"]
+    )
+    assert "semantic" in results
+    assert 0 <= results["semantic"].score <= 1
+```
+
+## Project Structure
+
+When adding new features, follow the existing structure:
+
+```
+src/
+├── drift_detection/     # Drift detection algorithms
+├── rag_alignment/       # RAG alignment modules
+├── efficiency/          # Optimization techniques
+└── utils/              # Shared utilities
+
+tests/
+├── test_drift_detection.py
+├── test_rag_alignment.py
+└── fixtures/           # Test data
+```
+
+## Submitting Issues
+
+### Bug Reports
+
+Include:
+- Python version and OS
+- Complete error traceback
+- Minimal code to reproduce
+- Expected vs actual behavior
+
+### Feature Requests
+
+Include:
+- Use case description
+- Proposed API/interface
+- Example usage
+- Potential implementation approach
+
+## Review Process
+
+1. All PRs require at least one review
+2. CI tests must pass
+3. Code coverage should not decrease
+4. Documentation must be updated
+
+## Release Process
+
+1. Version numbers follow Semantic Versioning
+2. Update CHANGELOG.md
+3. Tag releases with version number
+4. Build and publish to PyPI
+
+## Questions?
+
+- Open a GitHub issue for bugs/features
+- Join our Discord for discussions
+- Email maintainers for sensitive issues
+
+Thank you for contributing to Drift-Aware RAG!
