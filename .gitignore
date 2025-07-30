@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+*.manifest
+*.spec
+.eggs/
+.env
+.venv
+venv/
+env/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/config.toml
+.streamlit/secrets.toml
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+*.swp
+
+# Data & outputs
+data/*.csv
+data/*.json
+*.sqlite3
+*.db
+*.h5
+*.parquet
+
+# Figures & logs
+figures/*.png
+figures/*.jpg
+figures/*.pdf
+logs/
+*.log
+
+# Environment files
+*.env
+.env.*
+.DS_Store
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
+
+# Conda
+conda-meta/
+*.conda
+*.yaml
+
+# Pytest / Coverage
+.cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
