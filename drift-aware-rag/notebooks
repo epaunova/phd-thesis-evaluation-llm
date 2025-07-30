@@ -1,0 +1,257 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Exploratory Data Analysis for Drift Detection\n",
+    "\n",
+    "This notebook explores the initial datasets and establishes baseline metrics for drift detection."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Import required libraries\n",
+    "import sys\n",
+    "sys.path.append('..')\n",
+    "\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "from pathlib import Path\n",
+    "\n",
+    "from src.drift_detection import DriftDetector\n",
+    "from src.utils.logger import setup_logger\n",
+    "\n",
+    "# Setup\n",
+    "logger = setup_logger('eda')\n",
+    "sns.set_style('whitegrid')\n",
+    "%matplotlib inline"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1. Load and Explore Data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Load baseline outputs\n",
+    "data_dir = Path('../data/raw')\n",
+    "baseline_df = pd.read_json(data_dir / 'baseline_outputs.jsonl', lines=True)\n",
+    "\n",
+    "print(f\"Loaded {len(baseline_df)} baseline outputs\")\n",
+    "print(f\"Columns: {baseline_df.columns.tolist()}\")\n",
+    "baseline_df.head()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Basic statistics\n",
+    "print(\"Output length distribution:\")\n",
+    "baseline_df['output_length'] = baseline_df['output'].str.len()\n",
+    "baseline_df['output_length'].describe()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Embedding Analysis"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Generate embeddings for outputs\n",
+    "from sentence_transformers import SentenceTransformer\n",
+    "\n",
+    "model = SentenceTransformer('all-MiniLM-L6-v2')\n",
+    "embeddings = model.encode(baseline_df['output'].tolist(), show_progress_bar=True)\n",
+    "\n",
+    "print(f\"Embedding shape: {embeddings.shape}\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Visualize embedding clusters\n",
+    "from sklearn.decomposition import PCA\n",
+    "from sklearn.cluster import KMeans\n",
+    "\n",
+    "# Reduce dimensionality for visualization\n",
+    "pca = PCA(n_components=2)\n",
+    "embeddings_2d = pca.fit_transform(embeddings)\n",
+    "\n",
+    "# Cluster embeddings\n",
+    "kmeans = KMeans(n_clusters=5, random_state=42)\n",
+    "clusters = kmeans.fit_predict(embeddings)\n",
+    "\n",
+    "# Plot\n",
+    "plt.figure(figsize=(10, 8))\n",
+    "scatter = plt.scatter(embeddings_2d[:, 0], embeddings_2d[:, 1], \n",
+    "                     c=clusters, cmap='viridis', alpha=0.6)\n",
+    "plt.colorbar(scatter)\n",
+    "plt.title('Output Embeddings Clustered (PCA Projection)')\n",
+    "plt.xlabel('PC1')\n",
+    "plt.ylabel('PC2')\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. Temporal Analysis"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Analyze outputs over time\n",
+    "baseline_df['timestamp'] = pd.to_datetime(baseline_df['timestamp'])\n",
+    "baseline_df['date'] = baseline_df['timestamp'].dt.date\n",
+    "\n",
+    "# Daily output statistics\n",
+    "daily_stats = baseline_df.groupby('date').agg({\n",
+    "    'output_length': ['mean', 'std', 'count']\n",
+    "}).reset_index()\n",
+    "\n",
+    "# Plot temporal trends\n",
+    "fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))\n",
+    "\n",
+    "# Average length over time\n",
+    "ax1.plot(daily_stats['date'], daily_stats['output_length']['mean'])\n",
+    "ax1.fill_between(daily_stats['date'], \n",
+    "                 daily_stats['output_length']['mean'] - daily_stats['output_length']['std'],\n",
+    "                 daily_stats['output_length']['mean'] + daily_stats['output_length']['std'],\n",
+    "                 alpha=0.3)\n",
+    "ax1.set_ylabel('Average Output Length')\n",
+    "ax1.set_title('Output Length Over Time')\n",
+    "\n",
+    "# Volume over time\n",
+    "ax2.bar(daily_stats['date'], daily_stats['output_length']['count'])\n",
+    "ax2.set_ylabel('Number of Outputs')\n",
+    "ax2.set_xlabel('Date')\n",
+    "ax2.set_title('Output Volume Over Time')\n",
+    "\n",
+    "plt.tight_layout()\n",
+    "plt.show()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 4. Drift Detection Baseline"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Initialize drift detector\n",
+    "detector = DriftDetector(model_name='gpt-4')\n",
+    "\n",
+    "# Split data into reference and test sets\n",
+    "split_date = baseline_df['date'].quantile(0.5)\n",
+    "reference_data = baseline_df[baseline_df['date'] < split_date]\n",
+    "test_data = baseline_df[baseline_df['date'] >= split_date]\n",
+    "\n",
+    "print(f\"Reference set: {len(reference_data)} samples\")\n",
+    "print(f\"Test set: {len(test_data)} samples\")"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Calculate drift scores\n",
+    "drift_results = detector.detect_drift(\n",
+    "    reference_outputs=reference_data['output'].tolist(),\n",
+    "    test_outputs=test_data['output'].tolist(),\n",
+    "    metrics=['semantic', 'stylistic', 'length']\n",
+    ")\n",
+    "\n",
+    "# Display results\n",
+    "for metric, score in drift_results.items():\n",
+    "    print(f\"{metric.capitalize()} Drift Score: {score:.4f}\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 5. Save Processed Data"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Save embeddings and processed data\n",
+    "processed_dir = Path('../data/processed')\n",
+    "processed_dir.mkdir(exist_ok=True)\n",
+    "\n",
+    "# Save embeddings\n",
+    "np.save(processed_dir / 'baseline_embeddings.npy', embeddings)\n",
+    "\n",
+    "# Save processed dataframe\n",
+    "baseline_df.to_parquet(processed_dir / 'baseline_processed.parquet')\n",
+    "\n",
+    "print(\"Processed data saved successfully!\")"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
