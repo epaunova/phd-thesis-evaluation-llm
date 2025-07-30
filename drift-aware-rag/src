@@ -1,0 +1,335 @@
+"""
+Drift detection algorithms for LLM outputs.
+"""
+
+import numpy as np
+from typing import List, Dict, Optional, Tuple, Union
+from dataclasses import dataclass
+import torch
+from sentence_transformers import SentenceTransformer
+from scipy.spatial.distance import cosine
+from scipy.stats import wasserstein_distance, ks_2samp
+import logging
+
+from ..utils.logger import setup_logger
+
+logger = setup_logger(__name__)
+
+
+@dataclass
+class DriftScore:
+    """Container for drift detection results."""
+    score: float
+    metric: str
+    threshold: float
+    is_drift: bool
+    details: Optional[Dict] = None
+
+
+class DriftDetector:
+    """Main drift detection class for LLM outputs."""
+    
+    def __init__(
+        self,
+        model_name: str = "all-MiniLM-L6-v2",
+        device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    ):
+        """
+        Initialize drift detector.
+        
+        Args:
+            model_name: Sentence transformer model name
+            device: Device to run computations on
+        """
+        self.model = SentenceTransformer(model_name)
+        self.device = device
+        self.model.to(device)
+        logger.info(f"Initialized DriftDetector with {model_name} on {device}")
+    
+    def detect_drift(
+        self,
+        reference_outputs: List[str],
+        test_outputs: List[str],
+        metrics: List[str] = ["semantic", "stylistic", "length"],
+        confidence_level: float = 0.95
+    ) -> Dict[str, DriftScore]:
+        """
+        Detect drift between reference and test outputs.
+        
+        Args:
+            reference_outputs: Baseline outputs
+            test_outputs: New outputs to test
+            metrics: List of drift metrics to calculate
+            confidence_level: Confidence level for drift detection
+            
+        Returns:
+            Dictionary of metric names to DriftScore objects
+        """
+        results = {}
+        
+        if "semantic" in metrics:
+            results["semantic"] = self._semantic_drift(
+                reference_outputs, test_outputs, confidence_level
+            )
+        
+        if "stylistic" in metrics:
+            results["stylistic"] = self._stylistic_drift(
+                reference_outputs, test_outputs, confidence_level
+            )
+        
+        if "length" in metrics:
+            results["length"] = self._length_drift(
+                reference_outputs, test_outputs, confidence_level
+            )
+        
+        if "behavioral" in metrics:
+            results["behavioral"] = self._behavioral_drift(
+                reference_outputs, test_outputs, confidence_level
+            )
+        
+        return results
+    
+    def _semantic_drift(
+        self,
+        reference: List[str],
+        test: List[str],
+        confidence: float
+    ) -> DriftScore:
+        """Calculate semantic drift using embedding similarity."""
+        # Generate embeddings
+        ref_embeddings = self.model.encode(reference, show_progress_bar=False)
+        test_embeddings = self.model.encode(test, show_progress_bar=False)
+        
+        # Calculate centroid distance
+        ref_centroid = np.mean(ref_embeddings, axis=0)
+        test_centroid = np.mean(test_embeddings, axis=0)
+        centroid_distance = cosine(ref_centroid, test_centroid)
+        
+        # Calculate distribution distance
+        ref_distances = [cosine(emb, ref_centroid) for emb in ref_embeddings]
+        test_distances = [cosine(emb, test_centroid) for emb in test_embeddings]
+        
+        # Wasserstein distance for distribution comparison
+        w_distance = wasserstein_distance(ref_distances, test_distances)
+        
+        # Combined score
+        score = 0.5 * centroid_distance + 0.5 * w_distance
+        threshold = self._calculate_threshold(ref_distances, confidence)
+        
+        return DriftScore(
+            score=score,
+            metric="semantic",
+            threshold=threshold,
+            is_drift=score > threshold,
+            details={
+                "centroid_distance": centroid_distance,
+                "wasserstein_distance": w_distance
+            }
+        )
+    
+    def _stylistic_drift(
+        self,
+        reference: List[str],
+        test: List[str],
+        confidence: float
+    ) -> DriftScore:
+        """Calculate stylistic drift based on writing patterns."""
+        ref_features = self._extract_style_features(reference)
+        test_features = self._extract_style_features(test)
+        
+        # Compare distributions
+        score = 0.0
+        details = {}
+        
+        for feature in ref_features:
+            stat, p_value = ks_2samp(ref_features[feature], test_features[feature])
+            score += stat
+            details[f"{feature}_ks_stat"] = stat
+            details[f"{feature}_p_value"] = p_value
+        
+        score /= len(ref_features)  # Average across features
+        threshold = 0.2  # Empirical threshold
+        
+        return DriftScore(
+            score=score,
+            metric="stylistic",
+            threshold=threshold,
+            is_drift=score > threshold,
+            details=details
+        )
+    
+    def _length_drift(
+        self,
+        reference: List[str],
+        test: List[str],
+        confidence: float
+    ) -> DriftScore:
+        """Calculate drift in output length distribution."""
+        ref_lengths = [len(text.split()) for text in reference]
+        test_lengths = [len(text.split()) for text in test]
+        
+        # KS test for distribution comparison
+        stat, p_value = ks_2samp(ref_lengths, test_lengths)
+        
+        # Calculate relative change in mean
+        mean_change = abs(np.mean(test_lengths) - np.mean(ref_lengths)) / np.mean(ref_lengths)
+        
+        score = 0.7 * stat + 0.3 * mean_change
+        threshold = 0.15
+        
+        return DriftScore(
+            score=score,
+            metric="length",
+            threshold=threshold,
+            is_drift=score > threshold,
+            details={
+                "ks_statistic": stat,
+                "p_value": p_value,
+                "mean_change": mean_change,
+                "ref_mean": np.mean(ref_lengths),
+                "test_mean": np.mean(test_lengths)
+            }
+        )
+    
+    def _behavioral_drift(
+        self,
+        reference: List[str],
+        test: List[str],
+        confidence: float
+    ) -> DriftScore:
+        """Detect changes in model behavior patterns."""
+        # Extract behavioral features
+        ref_behaviors = self._extract_behavioral_features(reference)
+        test_behaviors = self._extract_behavioral_features(test)
+        
+        # Compare behavior distributions
+        score = 0.0
+        for behavior, ref_freq in ref_behaviors.items():
+            test_freq = test_behaviors.get(behavior, 0.0)
+            score += abs(ref_freq - test_freq)
+        
+        score /= len(ref_behaviors)
+        threshold = 0.1
+        
+        return DriftScore(
+            score=score,
+            metric="behavioral",
+            threshold=threshold,
+            is_drift=score > threshold,
+            details={
+                "reference_behaviors": ref_behaviors,
+                "test_behaviors": test_behaviors
+            }
+        )
+    
+    def _extract_style_features(self, texts: List[str]) -> Dict[str, List[float]]:
+        """Extract stylistic features from texts."""
+        features = {
+            "avg_word_length": [],
+            "sentence_length": [],
+            "punctuation_ratio": [],
+            "capitalization_ratio": []
+        }
+        
+        for text in texts:
+            words = text.split()
+            features["avg_word_length"].append(
+                np.mean([len(w) for w in words]) if words else 0
+            )
+            
+            sentences = text.split('.')
+            features["sentence_length"].append(
+                np.mean([len(s.split()) for s in sentences if s]) if sentences else 0
+            )
+            
+            features["punctuation_ratio"].append(
+                sum(1 for c in text if c in '.,;:!?') / max(len(text), 1)
+            )
+            
+            features["capitalization_ratio"].append(
+                sum(1 for c in text if c.isupper()) / max(len(text), 1)
+            )
+        
+        return features
+    
+    def _extract_behavioral_features(self, texts: List[str]) -> Dict[str, float]:
+        """Extract behavioral patterns from texts."""
+        behaviors = {
+            "starts_with_greeting": 0,
+            "uses_lists": 0,
+            "includes_disclaimer": 0,
+            "asks_questions": 0,
+            "uses_examples": 0
+        }
+        
+        for text in texts:
+            lower_text = text.lower()
+            
+            if any(lower_text.startswith(g) for g in ["hello", "hi", "greetings"]):
+                behaviors["starts_with_greeting"] += 1
+            
+            if any(marker in text for marker in ["1.", "•", "-", "*"]):
+                behaviors["uses_lists"] += 1
+            
+            if any(phrase in lower_text for phrase in ["however", "but", "please note"]):
+                behaviors["includes_disclaimer"] += 1
+            
+            if "?" in text:
+                behaviors["asks_questions"] += 1
+            
+            if any(phrase in lower_text for phrase in ["for example", "e.g.", "such as"]):
+                behaviors["uses_examples"] += 1
+        
+        # Normalize to frequencies
+        total = len(texts)
+        return {k: v / total for k, v in behaviors.items()}
+    
+    def _calculate_threshold(
+        self,
+        reference_distribution: List[float],
+        confidence: float
+    ) -> float:
+        """Calculate drift threshold based on reference distribution."""
+        # Use percentile-based threshold
+        percentile = (1 + confidence) / 2 * 100
+        return np.percentile(reference_distribution, percentile)
+    
+    def visualize_drift(
+        self,
+        drift_scores: Dict[str, DriftScore],
+        save_path: Optional[str] = None
+    ) -> None:
+        """Visualize drift detection results."""
+        import matplotlib.pyplot as plt
+        
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+        axes = axes.ravel()
+        
+        for idx, (metric, score) in enumerate(drift_scores.items()):
+            if idx >= 4:
+                break
+                
+            ax = axes[idx]
+            
+            # Bar plot
+            colors = ['red' if score.is_drift else 'green']
+            ax.bar([metric], [score.score], color=colors, alpha=0.7)
+            ax.axhline(y=score.threshold, color='black', linestyle='--', 
+                      label=f'Threshold: {score.threshold:.3f}')
+            
+            ax.set_ylim(0, max(score.score, score.threshold) * 1.2)
+            ax.set_ylabel('Drift Score')
+            ax.set_title(f'{metric.capitalize()} Drift Detection')
+            ax.legend()
+            
+            # Add text annotation
+            ax.text(0, score.score + 0.01, f'{score.score:.3f}', 
+                   ha='center', va='bottom')
+        
+        plt.tight_layout()
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            logger.info(f"Drift visualization saved to {save_path}")
+        
+        plt.show()
