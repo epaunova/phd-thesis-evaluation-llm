@@ -150,13 +150,13 @@ PhD Researcher (in progress) in AI Evaluation
 GitHub: [@epaunova](https://github.com/epaunova)  
 Medium: [@evapaunova](https://medium.com/@evapaunova)  
 
-Project Link: [https://github.com/yourusername/drift-aware-rag](https://github.com/yourusername/drift-aware-rag)
 
 ## Publications
 
 1. **"Detecting Semantic Drift in Production LLMs"** - EMNLP 2025 (under review)
-2. **"AlignedRAG: Optimizing Retrieval-Generation Consistency"** - ICLR 2026 (in preparation)
-3. **"Efficient GPU Kernels for RAG Systems"** - MLSys 2026 (planned)
+2. https://doi.org/10.5281/zenodo.16615347
+3. **"AlignedRAG: Optimizing Retrieval-Generation Consistency"** - ICLR 2026 (in preparation)
+4. **"Efficient GPU Kernels for RAG Systems"** - MLSys 2026 (planned)
 
 
 ---
