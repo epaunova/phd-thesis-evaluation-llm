@@ -1,0 +1,4 @@
+model,tone_drift,hallucination_rate,latency
+GPT-4,0.08,0.12,950
+Claude-3,0.04,0.10,870
+Mixtral,0.09,0.15,720
