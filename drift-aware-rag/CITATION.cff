@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Paunova"
+    given-names: "Elena"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+    affiliation: "Your University"
+    email: "elena.paunova@university.edu"
+title: "Drift-Aware Retrieval-Augmented Language Models"
+version: 0.1.0
+doi: 10.5281/zenodo.0000000
+date-released: 2024-12-01
+url: "https://github.com/yourusername/drift-aware-rag"
+repository-code: "https://github.com/yourusername/drift-aware-rag"
+license: MIT
+keywords:
+  - large language models
+  - retrieval augmented generation
+  - drift detection
+  - model alignment
+  - gpu optimization
+  - natural language processing
+abstract: |
+  This repository contains the implementation of drift detection, alignment optimization,
+  and efficiency engineering techniques for Retrieval-Augmented Language Models (RAG).
+  The project addresses critical challenges in deploying RAG systems in production
+  environments, providing automated drift detection, improved retrieval-generation
+  alignment, and GPU-optimized inference pipelines.
+preferred-citation:
+  type: conference-paper
+  authors:
+    - family-names: "Paunova"
+      given-names: "Elena"
+  title: "Detecting Semantic Drift in Production LLMs"
+  conference:
+    name: "Empirical Methods in Natural Language Processing"
+  year: 2025
+  status: "under-review"
