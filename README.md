@@ -1,4 +1,5 @@
 # 🧠 Reliable Evaluation & Drift Detection in Large Language Models (LLMs)
+https://doi.org/10.5281/zenodo.16615347
 
 > A research-grade project showcasing methods for hallucination detection, prompt drift scoring, and GPU-efficient inference for production-grade LLMs.
 
