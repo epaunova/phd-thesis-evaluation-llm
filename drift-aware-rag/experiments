@@ -1,0 +1,59 @@
+# Drift Detection Configuration
+
+experiment:
+  name: "drift_detection_baseline"
+  description: "Baseline drift detection experiments for LLM outputs"
+  seed: 42
+  output_dir: "experiments/results/drift_detection"
+
+data:
+  reference_data: "data/processed/reference_outputs.jsonl"
+  test_data: "data/processed/test_outputs.jsonl"
+  batch_size: 32
+  max_samples: 10000
+
+models:
+  - name: "gpt-4"
+    api_key: "${GPT4_API_KEY}"
+    temperature: 0.7
+  - name: "claude-3"
+    api_key: "${CLAUDE_API_KEY}"
+    temperature: 0.7
+  - name: "llama-3-70b"
+    model_path: "models/llama-3-70b"
+    device: "cuda"
+
+drift_detection:
+  embedding_model: "all-MiniLM-L6-v2"
+  metrics:
+    - semantic
+    - stylistic
+    - length
+    - behavioral
+  confidence_level: 0.95
+  window_size: 1000
+  stride: 100
+
+evaluation:
+  metrics:
+    - precision
+    - recall
+    - f1_score
+    - auc_roc
+  validation_split: 0.2
+  cross_validation_folds: 5
+
+monitoring:
+  log_interval: 100
+  save_interval: 500
+  wandb:
+    enabled: true
+    project: "drift-aware-rag"
+    entity: "your-entity"
+    tags: ["drift-detection", "baseline"]
+
+compute:
+  device: "cuda"
+  mixed_precision: true
+  num_workers: 4
+  pin_memory: true
