@@ -1,1 +1,69 @@
+# Data Directory Structure
 
+This directory contains all datasets and experimental data for the Drift-Aware RAG project.
+
+## Directory Structure
+
+```
+data/
+├── raw/              # Original, immutable data
+├── processed/        # Cleaned and preprocessed data
+├── interim/          # Intermediate data transformations
+└── external/         # Data from third-party sources
+```
+
+## Data Sources
+
+### Raw Data
+- **LLM Outputs**: Historical outputs from GPT-4, Claude, Llama, Mixtral
+- **Prompts**: Standardized prompt sets for drift detection
+- **Human Evaluations**: Annotation data for validation
+
+### Processed Data
+- **Embeddings**: Pre-computed embeddings for drift analysis
+- **Drift Scores**: Calculated drift metrics
+- **Alignment Scores**: RAG alignment measurements
+
+### External Data
+- **Benchmarks**: Standard NLP benchmarks (MMLU, TruthfulQA, etc.)
+- **Knowledge Bases**: Wikipedia snapshots, domain-specific corpora
+- **Evaluation Sets**: Community-standard evaluation datasets
+
+## Data Management
+
+### Downloading Data
+```bash
+# Download baseline datasets
+python scripts/download_data.py --dataset baseline
+
+# Download evaluation sets
+python scripts/download_data.py --dataset evaluation
+```
+
+### Data Privacy
+- All data containing PII is stored in encrypted format
+- Use `scripts/anonymize_data.py` before sharing
+- Follow institutional IRB guidelines
+
+## File Formats
+
+- **CSV**: Tabular data (metrics, scores)
+- **JSON**: Structured outputs, configurations
+- **JSONL**: Streaming data (LLM outputs)
+- **HDF5**: Large numerical arrays (embeddings)
+- **Parquet**: Efficient columnar storage
+
+## Version Control
+
+Large files are managed with Git LFS:
+```bash
+git lfs track "*.h5"
+git lfs track "*.parquet"
+git lfs track "*.bin"
+```
+
+## Citations
+
+If using specific datasets, please cite:
+- [Dataset 1]: Citation details
+- [Dataset 2]: Citation details
